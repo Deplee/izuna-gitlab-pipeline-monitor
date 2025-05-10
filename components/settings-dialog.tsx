@@ -60,45 +60,68 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
   // Load settings on open
   useEffect(() => {
     let isMounted = true
-
-    if (open && !settingsLoaded) {
-      const fetchSettings = async () => {
-        try {
-          const response = await fetch("/api/settings")
-          if (response.ok && isMounted) {
-            const data = await response.json()
-
-            setGitlabSettings((prevSettings) => ({
-              ...prevSettings,
-              ...(data.gitlab || {}),
-            }))
-
-            setNotificationSettings((prevSettings) => ({
-              ...prevSettings,
-              ...(data.notifications || {}),
-            }))
-
-            setSettingsLoaded(true)
-          }
-        } catch (error) {
-          console.error("Error fetching settings:", error)
-          if (isMounted) {
-            toast({
-              title: "Ошибка",
-              description: "Не удалось загрузить настройки",
-              variant: "destructive",
+    
+    const fetchSettings = async () => {
+      // Only fetch if dialog is open and settings haven't been loaded yet
+      if (!open || settingsLoaded) return
+      
+      try {
+        const response = await fetch("/api/settings")
+        if (response.ok && isMounted) {
+          const data = await response.json()
+          
+          if (data.gitlab) {
+            setGitlabSettings({
+              url: data.gitlab.url || "",
+              token: data.gitlab.token || "",
+              repositories: data.gitlab.repositories || "",
             })
           }
+          
+          if (data.notifications) {
+            setNotificationSettings({
+              zulip: {
+                enabled: data.notifications.zulip?.enabled || false,
+                url: data.notifications.zulip?.url || "",
+                email: data.notifications.zulip?.email || "",
+                apiKey: data.notifications.zulip?.apiKey || "",
+                stream: data.notifications.zulip?.stream || "",
+                topic: data.notifications.zulip?.topic || "GitLab Pipelines",
+              },
+              telegram: {
+                enabled: data.notifications.telegram?.enabled || false,
+                botToken: data.notifications.telegram?.botToken || "",
+                chatId: data.notifications.telegram?.chatId || "",
+              },
+              notifyOn: {
+                success: data.notifications.notifyOn?.success || false,
+                failed: data.notifications.notifyOn?.failed || true,
+                running: data.notifications.notifyOn?.running || false,
+                pending: data.notifications.notifyOn?.pending || false,
+              },
+            })
+          }
+          
+          setSettingsLoaded(true)
+        }
+      } catch (error) {
+        console.error("Error fetching settings:", error)
+        if (isMounted) {
+          toast({
+            title: "Ошибка",
+            description: "Не удалось загрузить настройки",
+            variant: "destructive",
+          })
         }
       }
-
-      fetchSettings()
     }
 
+    fetchSettings()
+    
     return () => {
       isMounted = false
     }
-  }, [open, toast])
+  }, [open, toast, settingsLoaded])
 
   // Reset loaded state when dialog closes
   useEffect(() => {
@@ -228,9 +251,9 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
 
           <TabsContent value="gitlab" className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="gitlab-url">URL GitLab</Label>
+              <Label htmlFor="gitlab-url-input">URL GitLab</Label>
               <Input
-                id="gitlab-url"
+                id="gitlab-url-input"
                 placeholder="https://gitlab.com"
                 value={gitlabSettings.url}
                 onChange={(e) => updateGitlabSetting("url", e.target.value)}
@@ -238,9 +261,9 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="gitlab-token">Персональный токен доступа</Label>
+              <Label htmlFor="gitlab-token-input">Персональный токен доступа</Label>
               <Input
-                id="gitlab-token"
+                id="gitlab-token-input"
                 type="password"
                 placeholder="glpat-xxxxxxxxx"
                 value={gitlabSettings.token}
@@ -252,9 +275,9 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="gitlab-repos">Репозитории (ID проектов)</Label>
+              <Label htmlFor="gitlab-repos-input">Репозитории (ID проектов)</Label>
               <Input
-                id="gitlab-repos"
+                id="gitlab-repos-input"
                 placeholder="123,456,789"
                 value={gitlabSettings.repositories}
                 onChange={(e) => updateGitlabSetting("repositories", e.target.value)}
@@ -268,17 +291,17 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
           <TabsContent value="zulip" className="space-y-4 py-4">
             <div className="flex items-center space-x-2">
               <Switch
-                id="zulip-enabled"
+                id="zulip-enabled-switch"
                 checked={notificationSettings.zulip.enabled}
                 onCheckedChange={(checked) => updateZulipSetting("enabled", checked)}
               />
-              <Label htmlFor="zulip-enabled">Включить уведомления Zulip</Label>
+              <Label htmlFor="zulip-enabled-switch">Включить уведомления Zulip</Label>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zulip-url">URL Zulip</Label>
+              <Label htmlFor="zulip-url-input">URL Zulip</Label>
               <Input
-                id="zulip-url"
+                id="zulip-url-input"
                 placeholder="https://yourzulip.zulipchat.com"
                 value={notificationSettings.zulip.url}
                 onChange={(e) => updateZulipSetting("url", e.target.value)}
@@ -287,9 +310,9 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zulip-email">Email бота</Label>
+              <Label htmlFor="zulip-email-input">Email бота</Label>
               <Input
-                id="zulip-email"
+                id="zulip-email-input"
                 placeholder="gitlab-bot@yourzulip.zulipchat.com"
                 value={notificationSettings.zulip.email}
                 onChange={(e) => updateZulipSetting("email", e.target.value)}
@@ -298,9 +321,9 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zulip-api-key">API ключ</Label>
+              <Label htmlFor="zulip-api-key-input">API ключ</Label>
               <Input
-                id="zulip-api-key"
+                id="zulip-api-key-input"
                 type="password"
                 placeholder="xxxxxxxxxxxxxxxxxxxxxxxx"
                 value={notificationSettings.zulip.apiKey}
@@ -310,9 +333,9 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zulip-stream">Поток</Label>
+              <Label htmlFor="zulip-stream-input">Поток</Label>
               <Input
-                id="zulip-stream"
+                id="zulip-stream-input"
                 placeholder="gitlab"
                 value={notificationSettings.zulip.stream}
                 onChange={(e) => updateZulipSetting("stream", e.target.value)}
@@ -321,9 +344,9 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zulip-topic">Тема</Label>
+              <Label htmlFor="zulip-topic-input">Тема</Label>
               <Input
-                id="zulip-topic"
+                id="zulip-topic-input"
                 placeholder="GitLab Pipelines"
                 value={notificationSettings.zulip.topic}
                 onChange={(e) => updateZulipSetting("topic", e.target.value)}
@@ -335,17 +358,17 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
           <TabsContent value="telegram" className="space-y-4 py-4">
             <div className="flex items-center space-x-2">
               <Switch
-                id="telegram-enabled"
+                id="telegram-enabled-switch"
                 checked={notificationSettings.telegram.enabled}
                 onCheckedChange={(checked) => updateTelegramSetting("enabled", checked)}
               />
-              <Label htmlFor="telegram-enabled">Включить уведомления Telegram</Label>
+              <Label htmlFor="telegram-enabled-switch">Включить уведомления Telegram</Label>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="telegram-bot-token">Токен бота</Label>
+              <Label htmlFor="telegram-bot-token-input">Токен бота</Label>
               <Input
-                id="telegram-bot-token"
+                id="telegram-bot-token-input"
                 type="password"
                 placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
                 value={notificationSettings.telegram.botToken}
@@ -356,9 +379,9 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="telegram-chat-id">ID чата</Label>
+              <Label htmlFor="telegram-chat-id-input">ID чата</Label>
               <Input
-                id="telegram-chat-id"
+                id="telegram-chat-id-input"
                 placeholder="-1001234567890"
                 value={notificationSettings.telegram.chatId}
                 onChange={(e) => updateTelegramSetting("chatId", e.target.value)}

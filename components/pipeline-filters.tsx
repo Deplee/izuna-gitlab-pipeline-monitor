@@ -23,12 +23,15 @@ export const PipelineFilters = memo(function PipelineFilters({
   const [repoFilter, setRepoFilter] = useState<string>("all")
   const [branchFilter, setBranchFilter] = useState<string>("")
   const [displayCount, setDisplayCount] = useState<number>(10)
+  
+  // Track if filters have been initialized
+  const [filtersInitialized, setFiltersInitialized] = useState(false)
 
-  // Get unique branches from pipelines
-  const branches = [...new Set(pipelines.map((p) => p.ref))]
-
-  // Memoize the filter function to prevent unnecessary recalculations
-  const applyFilters = useCallback(() => {
+  // Apply filters when dependencies change
+  useEffect(() => {
+    // Skip if pipelines are empty (initial load)
+    if (pipelines.length === 0) return
+    
     // Apply filters
     let filtered = [...pipelines]
 
@@ -49,21 +52,26 @@ export const PipelineFilters = memo(function PipelineFilters({
 
     // Apply display count (this is handled in the PipelineList component)
     onFilterChange(filtered)
-  }, [statusFilter, repoFilter, branchFilter, pipelines, onFilterChange])
-
-  // Apply filters when dependencies change
-  useEffect(() => {
-    applyFilters()
-  }, [applyFilters])
+    
+    // Mark filters as initialized
+    if (!filtersInitialized) {
+      setFiltersInitialized(true)
+    }
+  }, [statusFilter, repoFilter, branchFilter, pipelines, onFilterChange, filtersInitialized])
 
   return (
     <Card>
       <CardContent className="pt-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="status-filter">Статус</Label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger id="status-filter">
+            <Label htmlFor="status-filter-select">Статус</Label>
+            <Select 
+              value={statusFilter} 
+              onValueChange={(value) => {
+                setStatusFilter(value)
+              }}
+            >
+              <SelectTrigger id="status-filter-select">
                 <SelectValue placeholder="Выберите статус" />
               </SelectTrigger>
               <SelectContent>
@@ -77,9 +85,14 @@ export const PipelineFilters = memo(function PipelineFilters({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="repo-filter">Репозиторий</Label>
-            <Select value={repoFilter} onValueChange={setRepoFilter}>
-              <SelectTrigger id="repo-filter">
+            <Label htmlFor="repo-filter-select">Репозиторий</Label>
+            <Select 
+              value={repoFilter} 
+              onValueChange={(value) => {
+                setRepoFilter(value)
+              }}
+            >
+              <SelectTrigger id="repo-filter-select">
                 <SelectValue placeholder="Выберите репозиторий" />
               </SelectTrigger>
               <SelectContent>
@@ -94,9 +107,9 @@ export const PipelineFilters = memo(function PipelineFilters({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="branch-filter">Ветка</Label>
+            <Label htmlFor="branch-filter-input">Ветка</Label>
             <Input
-              id="branch-filter"
+              id="branch-filter-input"
               placeholder="Фильтр по ветке"
               value={branchFilter}
               onChange={(e) => setBranchFilter(e.target.value)}
@@ -105,10 +118,10 @@ export const PipelineFilters = memo(function PipelineFilters({
 
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label htmlFor="display-count">Количество: {displayCount}</Label>
+              <Label htmlFor="display-count-slider">Количество: {displayCount}</Label>
             </div>
             <Slider
-              id="display-count"
+              id="display-count-slider"
               min={5}
               max={50}
               step={5}

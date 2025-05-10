@@ -19,19 +19,29 @@ export function PipelinesDashboard() {
   const [isConfigured, setIsConfigured] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
-  
+
   // Use refs to prevent infinite loops
   const initialFetchDone = useRef(false)
   const pollingInterval = useRef<NodeJS.Timeout | null>(null)
+  const isFirstRender = useRef(true)
 
   // Fetch repositories and pipelines
   useEffect(() => {
+    // Skip the first render to prevent double fetching
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    
     // Define the fetch function
     const fetchData = async () => {
-      try {
+      if (!initialFetchDone.current) {
         setIsLoading(true)
-        setError(null)
+      }
+      
+      setError(null)
 
+      try {
         // Check if settings are configured
         const settingsResponse = await fetch("/api/settings")
         const settingsData = await settingsResponse.json()
@@ -42,7 +52,10 @@ export function PipelinesDashboard() {
           settingsData.gitlab.token &&
           settingsData.gitlab.repositories
 
-        setIsConfigured(hasGitlabConfig)
+        // Only update if the value changed to prevent unnecessary renders
+        if (hasGitlabConfig !== isConfigured) {
+          setIsConfigured(hasGitlabConfig)
+        }
 
         if (!hasGitlabConfig) {
           setIsLoading(false)
@@ -73,13 +86,16 @@ export function PipelinesDashboard() {
 
           if (!pipelinesResponse.ok) {
             throw new Error(
-              `Ошибка при получении пайплайнов: ${pipelinesResponse.status} ${pipelinesResponse.statusText}`
+              `Ошибка при получении пайплайнов: ${pipelinesResponse.status} ${pipelinesResponse.statusText}`,
             )
           }
 
           const pipelinesData = await pipelinesResponse.json()
           setPipelines(pipelinesData)
-          setFilteredPipelines(pipelinesData)
+          // Only set filtered pipelines on initial load or if they're empty
+          if (!initialFetchDone.current || filteredPipelines.length === 0) {
+            setFilteredPipelines(pipelinesData)
+          }
         } catch (pipelineError) {
           console.error("Error fetching pipelines:", pipelineError)
           setError(pipelineError instanceof Error ? pipelineError.message : "Ошибка при получении пайплайнов")
@@ -87,21 +103,21 @@ export function PipelinesDashboard() {
       } catch (error) {
         console.error("Error fetching data:", error)
         setError(error instanceof Error ? error.message : "Произошла ошибка при загрузке данных")
-        toast({
-          title: "Ошибка",
-          description: error instanceof Error ? error.message : "Произошла ошибка при загрузке данных",
-          variant: "destructive",
-        })
+        if (!initialFetchDone.current) {
+          toast({
+            title: "Ошибка",
+            description: error instanceof Error ? error.message : "Произошла ошибка при загрузке данных",
+            variant: "destructive",
+          })
+        }
       } finally {
         setIsLoading(false)
+        initialFetchDone.current = true
       }
     }
 
     // Initial fetch
-    if (!initialFetchDone.current) {
-      fetchData()
-      initialFetchDone.current = true
-    }
+    fetchData()
 
     // Set up polling for updates every 2 minutes
     if (!pollingInterval.current) {
@@ -121,8 +137,15 @@ export function PipelinesDashboard() {
     setFilteredPipelines(filteredResults)
   }
 
+  const handleSettingsSaved = () => {
+    // Reset fetch state to trigger a new fetch
+    initialFetchDone.current = false
+    // Force a re-render to trigger the useEffect
+    setIsConfigured(false)
+  }
+
   // If not configured, show configuration message
-  if (!isConfigured && !isLoading) {
+  if (!isConfigured && !isLoading && initialFetchDone.current) {
     return (
       <div className="space-y-6">
         <Card>
@@ -141,20 +164,17 @@ export function PipelinesDashboard() {
           </CardContent>
         </Card>
 
-        <SettingsDialog 
-          open={isSettingsOpen} 
-          onOpenChange={setIsSettingsOpen} 
-          onSettingsSaved={() => {
-            // Manually trigger a refetch when settings are saved
-            initialFetchDone.current = false
-          }}
+        <SettingsDialog
+          open={isSettingsOpen}
+          onOpenChange={setIsSettingsOpen}
+          onSettingsSaved={handleSettingsSaved}
         />
       </div>
     )
   }
 
   // If there's an error, show error message with settings button
-  if (error && !isLoading) {
+  if (error && !isLoading && initialFetchDone.current) {
     return (
       <div className="space-y-6">
         <Card className="border-red-300 dark:border-red-800">
@@ -171,13 +191,10 @@ export function PipelinesDashboard() {
           </CardContent>
         </Card>
 
-        <SettingsDialog 
-          open={isSettingsOpen} 
+        <SettingsDialog
+          open={isSettingsOpen}
           onOpenChange={setIsSettingsOpen}
-          onSettingsSaved={() => {
-            // Manually trigger a refetch when settings are saved
-            initialFetchDone.current = false
-          }}
+          onSettingsSaved={handleSettingsSaved}
         />
       </div>
     )
@@ -193,17 +210,18 @@ export function PipelinesDashboard() {
         </Button>
       </div>
 
-      <PipelineFilters pipelines={pipelines} repositories={repositories} onFilterChange={handleFilterChange} />
+      <PipelineFilters 
+        pipelines={pipelines} 
+        repositories={repositories} 
+        onFilterChange={handleFilterChange} 
+      />
 
       <PipelineList pipelines={filteredPipelines} isLoading={isLoading} />
 
-      <SettingsDialog 
-        open={isSettingsOpen} 
+      <SettingsDialog
+        open={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
-        onSettingsSaved={() => {
-          // Manually trigger a refetch when settings are saved
-          initialFetchDone.current = false
-        }}
+        onSettingsSaved={handleSettingsSaved}
       />
     </div>
   )
