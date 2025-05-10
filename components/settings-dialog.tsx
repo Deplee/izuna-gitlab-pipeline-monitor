@@ -21,9 +21,10 @@ import { NotificationStatusSelector } from "@/components/notification-status-sel
 interface SettingsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSettingsSaved?: () => void
 }
 
-export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: SettingsDialogProps) {
   const [gitlabSettings, setGitlabSettings] = useState<GitLabSettings>({
     url: "",
     token: "",
@@ -53,37 +54,56 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   })
 
   const [isSaving, setIsSaving] = useState(false)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
   const { toast } = useToast()
 
   // Load settings on open
   useEffect(() => {
-    if (open) {
+    let isMounted = true
+    
+    if (open && !settingsLoaded) {
       const fetchSettings = async () => {
         try {
           const response = await fetch("/api/settings")
-          if (response.ok) {
+          if (response.ok && isMounted) {
             const data = await response.json()
-
-            // Only update state if the data is different
-            if (JSON.stringify(data.gitlab || {}) !== JSON.stringify(gitlabSettings)) {
-              setGitlabSettings(data.gitlab || gitlabSettings)
-            }
-
-            if (JSON.stringify(data.notifications || {}) !== JSON.stringify(notificationSettings)) {
-              setNotificationSettings(data.notifications || notificationSettings)
-            }
+            
+            setGitlabSettings(prevSettings => ({
+              ...prevSettings,
+              ...(data.gitlab || {})
+            }))
+            
+            setNotificationSettings(prevSettings => ({
+              ...prevSettings,
+              ...(data.notifications || {})
+            }))
+            
+            setSettingsLoaded(true)
           }
         } catch (error) {
           console.error("Error fetching settings:", error)
-          toast({
-            title: "Ошибка",
-            description: "Не удалось загрузить настройки",
-            variant: "destructive",
-          })
+          if (isMounted) {
+            toast({
+              title: "Ошибка",
+              description: "Не удалось загрузить настройки",
+              variant: "destructive",
+            })
+          }
         }
       }
 
       fetchSettings()
+    }
+    
+    return () => {
+      isMounted = false
+    }
+  }, [open, toast])
+
+  // Reset loaded state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setSettingsLoaded(false)
     }
   }, [open])
 
@@ -126,10 +146,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           title: "Настройки сохранены",
           description: "Ваши настройки успешно сохранены",
         })
+        
+        // Call the callback if provided
+        if (onSettingsSaved) {
+          onSettingsSaved()
+        }
+        
         onOpenChange(false)
-
-        // Перезагрузим страницу, чтобы применить новые настройки
-        window.location.reload()
       } else {
         const error = await response.json()
         throw new Error(error.message || "Не удалось сохранить настройки")
@@ -144,7 +167,48 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     } finally {
       setIsSaving(false)
     }
-  }, [gitlabSettings, notificationSettings, toast, onOpenChange])
+  }, [gitlabSettings, notificationSettings, toast, onOpenChange, onSettingsSaved])
+
+  // Handle GitLab settings changes
+  const updateGitlabSetting = useCallback((key: keyof GitLabSettings, value: string) => {
+    setGitlabSettings(prev => ({
+      ...prev,
+      [key]: value
+    }))
+  }, [])
+
+  // Handle Zulip settings changes
+  const updateZulipSetting = useCallback((key: string, value: any) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      zulip: {
+        ...prev.zulip,
+        [key]: value
+      }
+    }))
+  }, [])
+
+  // Handle Telegram settings changes
+  const updateTelegramSetting = useCallback((key: string, value: any) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      telegram: {
+        ...prev.telegram,
+        [key]: value
+      }
+    }))
+  }, [])
+
+  // Handle notification status changes
+  const updateNotificationStatus = useCallback((key: string, value: boolean) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      notifyOn: {
+        ...prev.notifyOn,
+        [key]: value
+      }
+    }))
+  }, [])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -169,7 +233,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 id="gitlab-url"
                 placeholder="https://gitlab.com"
                 value={gitlabSettings.url}
-                onChange={(e) => setGitlabSettings({ ...gitlabSettings, url: e.target.value })}
+                onChange={(e) => updateGitlabSetting('url', e.target.value)}
               />
             </div>
 
@@ -180,7 +244,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 type="password"
                 placeholder="glpat-xxxxxxxxx"
                 value={gitlabSettings.token}
-                onChange={(e) => setGitlabSettings({ ...gitlabSettings, token: e.target.value })}
+                onChange={(e) => updateGitlabSetting('token', e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
                 Создайте токен с правами api в GitLab &gt; Settings &gt; Access Tokens
@@ -193,7 +257,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 id="gitlab-repos"
                 placeholder="123,456,789"
                 value={gitlabSettings.repositories}
-                onChange={(e) => setGitlabSettings({ ...gitlabSettings, repositories: e.target.value })}
+                onChange={(e) => updateGitlabSetting('repositories', e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
                 Список ID проектов GitLab для мониторинга, разделенных запятыми
@@ -206,12 +270,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               <Switch
                 id="zulip-enabled"
                 checked={notificationSettings.zulip.enabled}
-                onCheckedChange={(checked) =>
-                  setNotificationSettings({
-                    ...notificationSettings,
-                    zulip: { ...notificationSettings.zulip, enabled: checked },
-                  })
-                }
+                onCheckedChange={(checked) => updateZulipSetting('enabled', checked)}
               />
               <Label htmlFor="zulip-enabled">Включить уведомления Zulip</Label>
             </div>
@@ -222,12 +281,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 id="zulip-url"
                 placeholder="https://yourzulip.zulipchat.com"
                 value={notificationSettings.zulip.url}
-                onChange={(e) =>
-                  setNotificationSettings({
-                    ...notificationSettings,
-                    zulip: { ...notificationSettings.zulip, url: e.target.value },
-                  })
-                }
+                onChange={(e) => updateZulipSetting('url', e.target.value)}
                 disabled={!notificationSettings.zulip.enabled}
               />
             </div>
@@ -238,12 +292,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 id="zulip-email"
                 placeholder="gitlab-bot@yourzulip.zulipchat.com"
                 value={notificationSettings.zulip.email}
-                onChange={(e) =>
-                  setNotificationSettings({
-                    ...notificationSettings,
-                    zulip: { ...notificationSettings.zulip, email: e.target.value },
-                  })
-                }
+                onChange={(e) => updateZulipSetting('email', e.target.value)}
                 disabled={!notificationSettings.zulip.enabled}
               />
             </div>
@@ -255,12 +304,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 type="password"
                 placeholder="xxxxxxxxxxxxxxxxxxxxxxxx"
                 value={notificationSettings.zulip.apiKey}
-                onChange={(e) =>
-                  setNotificationSettings({
-                    ...notificationSettings,
-                    zulip: { ...notificationSettings.zulip, apiKey: e.target.value },
-                  })
-                }
+                onChange={(e) => updateZulipSetting('apiKey', e.target.value)}
                 disabled={!notificationSettings.zulip.enabled}
               />
             </div>
@@ -271,12 +315,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 id="zulip-stream"
                 placeholder="gitlab"
                 value={notificationSettings.zulip.stream}
-                onChange={(e) =>
-                  setNotificationSettings({
-                    ...notificationSettings,
-                    zulip: { ...notificationSettings.zulip, stream: e.target.value },
-                  })
-                }
+                onChange={(e) => updateZulipSetting('stream', e.target.value)}
                 disabled={!notificationSettings.zulip.enabled}
               />
             </div>
@@ -287,12 +326,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 id="zulip-topic"
                 placeholder="GitLab Pipelines"
                 value={notificationSettings.zulip.topic}
-                onChange={(e) =>
-                  setNotificationSettings({
-                    ...notificationSettings,
-                    zulip: { ...notificationSettings.zulip, topic: e.target.value },
-                  })
-                }
+                onChange={(e) => updateZulipSetting('topic', e.target.value)}
                 disabled={!notificationSettings.zulip.enabled}
               />
             </div>
@@ -303,12 +337,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               <Switch
                 id="telegram-enabled"
                 checked={notificationSettings.telegram.enabled}
-                onCheckedChange={(checked) =>
-                  setNotificationSettings({
-                    ...notificationSettings,
-                    telegram: { ...notificationSettings.telegram, enabled: checked },
-                  })
-                }
+                onCheckedChange={(checked) => updateTelegramSetting('enabled', checked)}
               />
               <Label htmlFor="telegram-enabled">Включить уведомления Telegram</Label>
             </div>
@@ -320,12 +349,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 type="password"
                 placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
                 value={notificationSettings.telegram.botToken}
-                onChange={(e) =>
-                  setNotificationSettings({
-                    ...notificationSettings,
-                    telegram: { ...notificationSettings.telegram, botToken: e.target.value },
-                  })
-                }
+                onChange={(e) => updateTelegramSetting('botToken', e.target.value)}
                 disabled={!notificationSettings.telegram.enabled}
               />
               <p className="text-xs text-muted-foreground">Создайте бота с помощью @BotFather и получите токен</p>
@@ -337,12 +361,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 id="telegram-chat-id"
                 placeholder="-1001234567890"
                 value={notificationSettings.telegram.chatId}
-                onChange={(e) =>
-                  setNotificationSettings({
-                    ...notificationSettings,
-                    telegram: { ...notificationSettings.telegram, chatId: e.target.value },
-                  })
-                }
+                onChange={(e) => updateTelegramSetting('chatId', e.target.value)}
                 disabled={!notificationSettings.telegram.enabled}
               />
               <p className="text-xs text-muted-foreground">
@@ -354,15 +373,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <TabsContent value="notifications" className="space-y-4 py-4">
             <NotificationStatusSelector
               notifyOn={notificationSettings.notifyOn}
-              onChange={(key, value) => {
-                setNotificationSettings({
-                  ...notificationSettings,
-                  notifyOn: {
-                    ...notificationSettings.notifyOn,
-                    [key]: value,
-                  },
-                })
-              }}
+              onChange={updateNotificationStatus}
             />
           </TabsContent>
         </Tabs>

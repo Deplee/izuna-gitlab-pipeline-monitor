@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, memo } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, XCircle, Clock, Play, AlertTriangle, ExternalLink } from "lucide-react"
@@ -14,7 +14,7 @@ interface PipelineListProps {
   isLoading: boolean
 }
 
-export function PipelineList({ pipelines, isLoading }: PipelineListProps) {
+export const PipelineList = memo(function PipelineList({ pipelines, isLoading }: PipelineListProps) {
   const [displayCount, setDisplayCount] = useState(10)
 
   const getStatusIcon = (status: string) => {
@@ -35,13 +35,13 @@ export function PipelineList({ pipelines, isLoading }: PipelineListProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "success":
-        return <Badge className="bg-green-500">Success</Badge>
+        return <Badge className="bg-green-500">Успешно</Badge>
       case "failed":
-        return <Badge className="bg-red-500">Failed</Badge>
+        return <Badge className="bg-red-500">Ошибка</Badge>
       case "running":
-        return <Badge className="bg-blue-500">Running</Badge>
+        return <Badge className="bg-blue-500">Выполняется</Badge>
       case "pending":
-        return <Badge className="bg-yellow-500">Pending</Badge>
+        return <Badge className="bg-yellow-500">В ожидании</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -51,8 +51,8 @@ export function PipelineList({ pipelines, isLoading }: PipelineListProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Pipelines</CardTitle>
-          <CardDescription>Loading pipeline data...</CardDescription>
+          <CardTitle>Пайплайны</CardTitle>
+          <CardDescription>Загрузка данных о пайплайнах...</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -75,13 +75,11 @@ export function PipelineList({ pipelines, isLoading }: PipelineListProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Pipelines</CardTitle>
-          <CardDescription>No pipelines found</CardDescription>
+          <CardTitle>Пайплайны</CardTitle>
+          <CardDescription>Пайплайны не найдены</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">
-            No pipelines match your current filters or no pipelines are available.
-          </p>
+          <p className="text-muted-foreground">Пайплайны не соответствуют текущим фильтрам или отсутствуют.</p>
         </CardContent>
       </Card>
     )
@@ -90,22 +88,22 @@ export function PipelineList({ pipelines, isLoading }: PipelineListProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pipelines</CardTitle>
+        <CardTitle>Пайплайны</CardTitle>
         <CardDescription>
-          Showing {Math.min(displayCount, pipelines.length)} of {pipelines.length} pipelines
+          Показано {Math.min(displayCount, pipelines.length)} из {pipelines.length} пайплайнов
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Status</TableHead>
-              <TableHead>Repository</TableHead>
-              <TableHead>Branch</TableHead>
-              <TableHead>Commit</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Репозиторий</TableHead>
+              <TableHead>Ветка</TableHead>
+              <TableHead>Коммит</TableHead>
+              <TableHead>Создан</TableHead>
+              <TableHead>Длительность</TableHead>
+              <TableHead>Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -129,7 +127,7 @@ export function PipelineList({ pipelines, isLoading }: PipelineListProps) {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-sm text-blue-500 hover:text-blue-700"
                   >
-                    View <ExternalLink className="h-3 w-3" />
+                    Просмотр <ExternalLink className="h-3 w-3" />
                   </a>
                 </TableCell>
               </TableRow>
@@ -143,11 +141,11 @@ export function PipelineList({ pipelines, isLoading }: PipelineListProps) {
               onClick={() => setDisplayCount((prev) => prev + 10)}
               className="text-sm text-blue-500 hover:text-blue-700"
             >
-              Load more
+              Загрузить еще
             </button>
           </div>
         )}
       </CardContent>
     </Card>
   )
-}
+})

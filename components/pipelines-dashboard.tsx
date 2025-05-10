@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { PipelineList } from "@/components/pipeline-list"
 import { PipelineFilters } from "@/components/pipeline-filters"
 import { SettingsDialog } from "@/components/settings-dialog"
-import { Settings } from "lucide-react"
+import { Settings } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,9 +19,14 @@ export function PipelinesDashboard() {
   const [isConfigured, setIsConfigured] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
+  
+  // Use refs to prevent infinite loops
+  const initialFetchDone = useRef(false)
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null)
 
   // Fetch repositories and pipelines
   useEffect(() => {
+    // Define the fetch function
     const fetchData = async () => {
       try {
         setIsLoading(true)
@@ -37,10 +42,7 @@ export function PipelinesDashboard() {
           settingsData.gitlab.token &&
           settingsData.gitlab.repositories
 
-        // Only update isConfigured if it changed
-        if (hasGitlabConfig !== isConfigured) {
-          setIsConfigured(hasGitlabConfig)
-        }
+        setIsConfigured(hasGitlabConfig)
 
         if (!hasGitlabConfig) {
           setIsLoading(false)
@@ -49,27 +51,39 @@ export function PipelinesDashboard() {
         }
 
         // Fetch repositories
-        const reposResponse = await fetch("/api/repositories")
+        try {
+          const reposResponse = await fetch("/api/repositories")
 
-        if (!reposResponse.ok) {
-          throw new Error(`Ошибка при получении репозиториев: ${reposResponse.status} ${reposResponse.statusText}`)
+          if (!reposResponse.ok) {
+            throw new Error(`Ошибка при получении репозиториев: ${reposResponse.status} ${reposResponse.statusText}`)
+          }
+
+          const reposData = await reposResponse.json()
+          setRepositories(reposData)
+        } catch (repoError) {
+          console.error("Error fetching repositories:", repoError)
+          setError(repoError instanceof Error ? repoError.message : "Ошибка при получении репозиториев")
+          setIsLoading(false)
+          return
         }
-
-        const reposData = await reposResponse.json()
-        setRepositories(reposData)
 
         // Fetch pipelines
-        const pipelinesResponse = await fetch("/api/pipelines")
+        try {
+          const pipelinesResponse = await fetch("/api/pipelines")
 
-        if (!pipelinesResponse.ok) {
-          throw new Error(
-            `Ошибка при получении пайплайнов: ${pipelinesResponse.status} ${pipelinesResponse.statusText}`,
-          )
+          if (!pipelinesResponse.ok) {
+            throw new Error(
+              `Ошибка при получении пайплайнов: ${pipelinesResponse.status} ${pipelinesResponse.statusText}`
+            )
+          }
+
+          const pipelinesData = await pipelinesResponse.json()
+          setPipelines(pipelinesData)
+          setFilteredPipelines(pipelinesData)
+        } catch (pipelineError) {
+          console.error("Error fetching pipelines:", pipelineError)
+          setError(pipelineError instanceof Error ? pipelineError.message : "Ошибка при получении пайплайнов")
         }
-
-        const pipelinesData = await pipelinesResponse.json()
-        setPipelines(pipelinesData)
-        setFilteredPipelines(pipelinesData)
       } catch (error) {
         console.error("Error fetching data:", error)
         setError(error instanceof Error ? error.message : "Произошла ошибка при загрузке данных")
@@ -83,13 +97,25 @@ export function PipelinesDashboard() {
       }
     }
 
-    fetchData()
+    // Initial fetch
+    if (!initialFetchDone.current) {
+      fetchData()
+      initialFetchDone.current = true
+    }
 
     // Set up polling for updates every 2 minutes
-    const intervalId = setInterval(fetchData, 2 * 60 * 1000)
+    if (!pollingInterval.current) {
+      pollingInterval.current = setInterval(fetchData, 2 * 60 * 1000)
+    }
 
-    return () => clearInterval(intervalId)
-  }, [toast, isConfigured])
+    // Cleanup function
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current)
+        pollingInterval.current = null
+      }
+    }
+  }, [toast]) // Only depend on toast, not on any state that might change during the effect
 
   const handleFilterChange = (filteredResults: Pipeline[]) => {
     setFilteredPipelines(filteredResults)
@@ -115,7 +141,14 @@ export function PipelinesDashboard() {
           </CardContent>
         </Card>
 
-        <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
+        <SettingsDialog 
+          open={isSettingsOpen} 
+          onOpenChange={setIsSettingsOpen} 
+          onSettingsSaved={() => {
+            // Manually trigger a refetch when settings are saved
+            initialFetchDone.current = false
+          }}
+        />
       </div>
     )
   }
@@ -138,7 +171,14 @@ export function PipelinesDashboard() {
           </CardContent>
         </Card>
 
-        <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
+        <SettingsDialog 
+          open={isSettingsOpen} 
+          onOpenChange={setIsSettingsOpen}
+          onSettingsSaved={() => {
+            // Manually trigger a refetch when settings are saved
+            initialFetchDone.current = false
+          }}
+        />
       </div>
     )
   }
@@ -157,7 +197,14 @@ export function PipelinesDashboard() {
 
       <PipelineList pipelines={filteredPipelines} isLoading={isLoading} />
 
-      <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
+      <SettingsDialog 
+        open={isSettingsOpen} 
+        onOpenChange={setIsSettingsOpen}
+        onSettingsSaved={() => {
+          // Manually trigger a refetch when settings are saved
+          initialFetchDone.current = false
+        }}
+      />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, memo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
@@ -14,7 +14,11 @@ interface PipelineFiltersProps {
   onFilterChange: (filteredPipelines: Pipeline[]) => void
 }
 
-export function PipelineFilters({ pipelines, repositories, onFilterChange }: PipelineFiltersProps) {
+export const PipelineFilters = memo(function PipelineFilters({ 
+  pipelines, 
+  repositories, 
+  onFilterChange 
+}: PipelineFiltersProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [repoFilter, setRepoFilter] = useState<string>("all")
   const [branchFilter, setBranchFilter] = useState<string>("")
@@ -23,7 +27,8 @@ export function PipelineFilters({ pipelines, repositories, onFilterChange }: Pip
   // Get unique branches from pipelines
   const branches = [...new Set(pipelines.map((p) => p.ref))]
 
-  useEffect(() => {
+  // Memoize the filter function to prevent unnecessary recalculations
+  const applyFilters = useCallback(() => {
     // Apply filters
     let filtered = [...pipelines]
 
@@ -43,38 +48,42 @@ export function PipelineFilters({ pipelines, repositories, onFilterChange }: Pip
     }
 
     // Apply display count (this is handled in the PipelineList component)
-
     onFilterChange(filtered)
-  }, [statusFilter, repoFilter, branchFilter, displayCount, pipelines, onFilterChange])
+  }, [statusFilter, repoFilter, branchFilter, pipelines, onFilterChange])
+
+  // Apply filters when dependencies change
+  useEffect(() => {
+    applyFilters()
+  }, [applyFilters])
 
   return (
     <Card>
       <CardContent className="pt-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="status-filter">Status</Label>
+            <Label htmlFor="status-filter">Статус</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger id="status-filter">
-                <SelectValue placeholder="Select status" />
+                <SelectValue placeholder="Выберите статус" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="success">Success</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
-                <SelectItem value="running">Running</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="all">Все статусы</SelectItem>
+                <SelectItem value="success">Успешно</SelectItem>
+                <SelectItem value="failed">Ошибка</SelectItem>
+                <SelectItem value="running">Выполняется</SelectItem>
+                <SelectItem value="pending">В ожидании</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="repo-filter">Repository</Label>
+            <Label htmlFor="repo-filter">Репозиторий</Label>
             <Select value={repoFilter} onValueChange={setRepoFilter}>
               <SelectTrigger id="repo-filter">
-                <SelectValue placeholder="Select repository" />
+                <SelectValue placeholder="Выберите репозиторий" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Repositories</SelectItem>
+                <SelectItem value="all">Все репозитории</SelectItem>
                 {repositories.map((repo) => (
                   <SelectItem key={repo.id} value={repo.id.toString()}>
                     {repo.name}
@@ -85,10 +94,10 @@ export function PipelineFilters({ pipelines, repositories, onFilterChange }: Pip
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="branch-filter">Branch</Label>
+            <Label htmlFor="branch-filter">Ветка</Label>
             <Input
               id="branch-filter"
-              placeholder="Filter by branch"
+              placeholder="Фильтр по ветке"
               value={branchFilter}
               onChange={(e) => setBranchFilter(e.target.value)}
             />
@@ -96,7 +105,7 @@ export function PipelineFilters({ pipelines, repositories, onFilterChange }: Pip
 
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label htmlFor="display-count">Display Count: {displayCount}</Label>
+              <Label htmlFor="display-count">Количество: {displayCount}</Label>
             </div>
             <Slider
               id="display-count"
@@ -111,4 +120,4 @@ export function PipelineFilters({ pipelines, repositories, onFilterChange }: Pip
       </CardContent>
     </Card>
   )
-}
+})
