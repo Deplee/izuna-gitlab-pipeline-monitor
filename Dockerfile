@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package.json
 COPY package.json ./
 
-# Install dependencies without using lockfiles
-RUN npm install
+# Install dependencies with legacy-peer-deps flag to bypass dependency conflicts
+RUN npm install --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder
