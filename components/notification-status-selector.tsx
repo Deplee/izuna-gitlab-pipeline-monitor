@@ -16,10 +16,10 @@ interface NotificationStatusSelectorProps {
   disabled?: boolean
 }
 
-export const NotificationStatusSelector = memo(function NotificationStatusSelector({ 
-  notifyOn, 
-  onChange, 
-  disabled = false 
+export const NotificationStatusSelector = memo(function NotificationStatusSelector({
+  notifyOn,
+  onChange,
+  disabled = false,
 }: NotificationStatusSelectorProps) {
   return (
     <Card>

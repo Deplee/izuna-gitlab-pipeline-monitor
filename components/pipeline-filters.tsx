@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, memo } from "react"
+import { useState, useEffect, memo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
@@ -23,7 +23,7 @@ export const PipelineFilters = memo(function PipelineFilters({
   const [repoFilter, setRepoFilter] = useState<string>("all")
   const [branchFilter, setBranchFilter] = useState<string>("")
   const [displayCount, setDisplayCount] = useState<number>(10)
-  
+
   // Track if filters have been initialized
   const [filtersInitialized, setFiltersInitialized] = useState(false)
 
@@ -31,7 +31,7 @@ export const PipelineFilters = memo(function PipelineFilters({
   useEffect(() => {
     // Skip if pipelines are empty (initial load)
     if (pipelines.length === 0) return
-    
+
     // Apply filters
     let filtered = [...pipelines]
 
@@ -52,7 +52,7 @@ export const PipelineFilters = memo(function PipelineFilters({
 
     // Apply display count (this is handled in the PipelineList component)
     onFilterChange(filtered)
-    
+
     // Mark filters as initialized
     if (!filtersInitialized) {
       setFiltersInitialized(true)
@@ -65,8 +65,8 @@ export const PipelineFilters = memo(function PipelineFilters({
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="space-y-2">
             <Label htmlFor="status-filter-select">Статус</Label>
-            <Select 
-              value={statusFilter} 
+            <Select
+              value={statusFilter}
               onValueChange={(value) => {
                 setStatusFilter(value)
               }}
@@ -86,8 +86,8 @@ export const PipelineFilters = memo(function PipelineFilters({
 
           <div className="space-y-2">
             <Label htmlFor="repo-filter-select">Репозиторий</Label>
-            <Select 
-              value={repoFilter} 
+            <Select
+              value={repoFilter}
               onValueChange={(value) => {
                 setRepoFilter(value)
               }}

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { PipelineList } from "@/components/pipeline-list"
 import { PipelineFilters } from "@/components/pipeline-filters"
 import { SettingsDialog } from "@/components/settings-dialog"
-import { Settings } from 'lucide-react'
+import { Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,13 +32,13 @@ export function PipelinesDashboard() {
       isFirstRender.current = false
       return
     }
-    
+
     // Define the fetch function
     const fetchData = async () => {
       if (!initialFetchDone.current) {
         setIsLoading(true)
       }
-      
+
       setError(null)
 
       try {
@@ -164,11 +164,7 @@ export function PipelinesDashboard() {
           </CardContent>
         </Card>
 
-        <SettingsDialog
-          open={isSettingsOpen}
-          onOpenChange={setIsSettingsOpen}
-          onSettingsSaved={handleSettingsSaved}
-        />
+        <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} onSettingsSaved={handleSettingsSaved} />
       </div>
     )
   }
@@ -191,11 +187,7 @@ export function PipelinesDashboard() {
           </CardContent>
         </Card>
 
-        <SettingsDialog
-          open={isSettingsOpen}
-          onOpenChange={setIsSettingsOpen}
-          onSettingsSaved={handleSettingsSaved}
-        />
+        <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} onSettingsSaved={handleSettingsSaved} />
       </div>
     )
   }
@@ -210,19 +202,11 @@ export function PipelinesDashboard() {
         </Button>
       </div>
 
-      <PipelineFilters 
-        pipelines={pipelines} 
-        repositories={repositories} 
-        onFilterChange={handleFilterChange} 
-      />
+      <PipelineFilters pipelines={pipelines} repositories={repositories} onFilterChange={handleFilterChange} />
 
       <PipelineList pipelines={filteredPipelines} isLoading={isLoading} />
 
-      <SettingsDialog
-        open={isSettingsOpen}
-        onOpenChange={setIsSettingsOpen}
-        onSettingsSaved={handleSettingsSaved}
-      />
+      <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} onSettingsSaved={handleSettingsSaved} />
     </div>
   )
 }

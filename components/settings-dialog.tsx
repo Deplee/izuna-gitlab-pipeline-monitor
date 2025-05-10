@@ -60,16 +60,16 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
   // Load settings on open
   useEffect(() => {
     let isMounted = true
-    
+
     const fetchSettings = async () => {
       // Only fetch if dialog is open and settings haven't been loaded yet
       if (!open || settingsLoaded) return
-      
+
       try {
         const response = await fetch("/api/settings")
         if (response.ok && isMounted) {
           const data = await response.json()
-          
+
           if (data.gitlab) {
             setGitlabSettings({
               url: data.gitlab.url || "",
@@ -77,7 +77,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
               repositories: data.gitlab.repositories || "",
             })
           }
-          
+
           if (data.notifications) {
             setNotificationSettings({
               zulip: {
@@ -101,7 +101,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
               },
             })
           }
-          
+
           setSettingsLoaded(true)
         }
       } catch (error) {
@@ -117,7 +117,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
     }
 
     fetchSettings()
-    
+
     return () => {
       isMounted = false
     }
