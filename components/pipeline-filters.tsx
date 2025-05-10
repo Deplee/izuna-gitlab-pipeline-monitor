@@ -14,10 +14,10 @@ interface PipelineFiltersProps {
   onFilterChange: (filteredPipelines: Pipeline[]) => void
 }
 
-export const PipelineFilters = memo(function PipelineFilters({ 
-  pipelines, 
-  repositories, 
-  onFilterChange 
+export const PipelineFilters = memo(function PipelineFilters({
+  pipelines,
+  repositories,
+  onFilterChange,
 }: PipelineFiltersProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [repoFilter, setRepoFilter] = useState<string>("all")
