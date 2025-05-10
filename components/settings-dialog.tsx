@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   Dialog,
   DialogContent,
@@ -52,6 +52,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     },
   })
 
+  const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
 
   // Load settings on open
@@ -62,11 +63,23 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           const response = await fetch("/api/settings")
           if (response.ok) {
             const data = await response.json()
-            setGitlabSettings(data.gitlab || gitlabSettings)
-            setNotificationSettings(data.notifications || notificationSettings)
+
+            // Only update state if the data is different
+            if (JSON.stringify(data.gitlab || {}) !== JSON.stringify(gitlabSettings)) {
+              setGitlabSettings(data.gitlab || gitlabSettings)
+            }
+
+            if (JSON.stringify(data.notifications || {}) !== JSON.stringify(notificationSettings)) {
+              setNotificationSettings(data.notifications || notificationSettings)
+            }
           }
         } catch (error) {
           console.error("Error fetching settings:", error)
+          toast({
+            title: "Ошибка",
+            description: "Не удалось загрузить настройки",
+            variant: "destructive",
+          })
         }
       }
 
@@ -74,8 +87,29 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     }
   }, [open])
 
-  const handleSaveSettings = async () => {
+  const handleSaveSettings = useCallback(async () => {
     try {
+      setIsSaving(true)
+
+      // Validate required fields
+      if (!gitlabSettings.url) {
+        toast({
+          title: "Ошибка",
+          description: "URL GitLab обязателен для заполнения",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!gitlabSettings.token) {
+        toast({
+          title: "Ошибка",
+          description: "Токен доступа GitLab обязателен для заполнения",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch("/api/settings", {
         method: "POST",
         headers: {
@@ -89,43 +123,48 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
       if (response.ok) {
         toast({
-          title: "Settings saved",
-          description: "Your settings have been saved successfully.",
+          title: "Настройки сохранены",
+          description: "Ваши настройки успешно сохранены",
         })
         onOpenChange(false)
+
+        // Перезагрузим страницу, чтобы применить новые настройки
+        window.location.reload()
       } else {
         const error = await response.json()
-        throw new Error(error.message || "Failed to save settings")
+        throw new Error(error.message || "Не удалось сохранить настройки")
       }
     } catch (error) {
       console.error("Error saving settings:", error)
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save settings",
+        title: "Ошибка",
+        description: error instanceof Error ? error.message : "Не удалось сохранить настройки",
         variant: "destructive",
       })
+    } finally {
+      setIsSaving(false)
     }
-  }
+  }, [gitlabSettings, notificationSettings, toast, onOpenChange])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>Configure your GitLab connection and notification preferences</DialogDescription>
+          <DialogTitle>Настройки</DialogTitle>
+          <DialogDescription>Настройте подключение к GitLab и параметры уведомлений</DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="gitlab">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="gitlab">GitLab</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="notifications">Уведомления</TabsTrigger>
             <TabsTrigger value="zulip">Zulip</TabsTrigger>
             <TabsTrigger value="telegram">Telegram</TabsTrigger>
           </TabsList>
 
           <TabsContent value="gitlab" className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="gitlab-url">GitLab URL</Label>
+              <Label htmlFor="gitlab-url">URL GitLab</Label>
               <Input
                 id="gitlab-url"
                 placeholder="https://gitlab.com"
@@ -135,7 +174,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="gitlab-token">Personal Access Token</Label>
+              <Label htmlFor="gitlab-token">Персональный токен доступа</Label>
               <Input
                 id="gitlab-token"
                 type="password"
@@ -144,19 +183,21 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 onChange={(e) => setGitlabSettings({ ...gitlabSettings, token: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                Create a token with api scope at GitLab &gt; Settings &gt; Access Tokens
+                Создайте токен с правами api в GitLab &gt; Settings &gt; Access Tokens
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="gitlab-repos">Repositories (Project IDs)</Label>
+              <Label htmlFor="gitlab-repos">Репозитории (ID проектов)</Label>
               <Input
                 id="gitlab-repos"
                 placeholder="123,456,789"
                 value={gitlabSettings.repositories}
                 onChange={(e) => setGitlabSettings({ ...gitlabSettings, repositories: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">Comma-separated list of GitLab project IDs to monitor</p>
+              <p className="text-xs text-muted-foreground">
+                Список ID проектов GitLab для мониторинга, разделенных запятыми
+              </p>
             </div>
           </TabsContent>
 
@@ -172,11 +213,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   })
                 }
               />
-              <Label htmlFor="zulip-enabled">Enable Zulip Notifications</Label>
+              <Label htmlFor="zulip-enabled">Включить уведомления Zulip</Label>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zulip-url">Zulip URL</Label>
+              <Label htmlFor="zulip-url">URL Zulip</Label>
               <Input
                 id="zulip-url"
                 placeholder="https://yourzulip.zulipchat.com"
@@ -192,7 +233,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zulip-email">Bot Email</Label>
+              <Label htmlFor="zulip-email">Email бота</Label>
               <Input
                 id="zulip-email"
                 placeholder="gitlab-bot@yourzulip.zulipchat.com"
@@ -208,7 +249,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zulip-api-key">API Key</Label>
+              <Label htmlFor="zulip-api-key">API ключ</Label>
               <Input
                 id="zulip-api-key"
                 type="password"
@@ -225,7 +266,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zulip-stream">Stream</Label>
+              <Label htmlFor="zulip-stream">Поток</Label>
               <Input
                 id="zulip-stream"
                 placeholder="gitlab"
@@ -241,7 +282,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="zulip-topic">Topic</Label>
+              <Label htmlFor="zulip-topic">Тема</Label>
               <Input
                 id="zulip-topic"
                 placeholder="GitLab Pipelines"
@@ -269,11 +310,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   })
                 }
               />
-              <Label htmlFor="telegram-enabled">Enable Telegram Notifications</Label>
+              <Label htmlFor="telegram-enabled">Включить уведомления Telegram</Label>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="telegram-bot-token">Bot Token</Label>
+              <Label htmlFor="telegram-bot-token">Токен бота</Label>
               <Input
                 id="telegram-bot-token"
                 type="password"
@@ -287,11 +328,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 }
                 disabled={!notificationSettings.telegram.enabled}
               />
-              <p className="text-xs text-muted-foreground">Create a bot with @BotFather and get the token</p>
+              <p className="text-xs text-muted-foreground">Создайте бота с помощью @BotFather и получите токен</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="telegram-chat-id">Chat ID</Label>
+              <Label htmlFor="telegram-chat-id">ID чата</Label>
               <Input
                 id="telegram-chat-id"
                 placeholder="-1001234567890"
@@ -304,7 +345,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 }
                 disabled={!notificationSettings.telegram.enabled}
               />
-              <p className="text-xs text-muted-foreground">Add @RawDataBot to your group to get the chat ID</p>
+              <p className="text-xs text-muted-foreground">
+                Добавьте @RawDataBot в вашу группу, чтобы получить ID чата
+              </p>
             </div>
           </TabsContent>
 
@@ -325,10 +368,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         </Tabs>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+            Отмена
           </Button>
-          <Button onClick={handleSaveSettings}>Save Changes</Button>
+          <Button onClick={handleSaveSettings} disabled={isSaving}>
+            {isSaving ? "Сохранение..." : "Сохранить"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

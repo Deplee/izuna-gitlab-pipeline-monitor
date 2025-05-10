@@ -19,8 +19,8 @@ export function NotificationStatusSelector({ notifyOn, onChange, disabled = fals
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle>Notification Triggers</CardTitle>
-        <CardDescription>Select which pipeline statuses will trigger notifications</CardDescription>
+        <CardTitle>Триггеры уведомлений</CardTitle>
+        <CardDescription>Выберите, при каких статусах пайплайнов будут отправляться уведомления</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-4">
@@ -33,7 +33,7 @@ export function NotificationStatusSelector({ notifyOn, onChange, disabled = fals
             />
             <Label htmlFor="notify-success" className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full bg-green-500"></span>
-              Success
+              Успешно
             </Label>
           </div>
 
@@ -46,7 +46,7 @@ export function NotificationStatusSelector({ notifyOn, onChange, disabled = fals
             />
             <Label htmlFor="notify-failed" className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full bg-red-500"></span>
-              Failed
+              Ошибка
             </Label>
           </div>
 
@@ -59,7 +59,7 @@ export function NotificationStatusSelector({ notifyOn, onChange, disabled = fals
             />
             <Label htmlFor="notify-running" className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full bg-blue-500"></span>
-              Running
+              Выполняется
             </Label>
           </div>
 
@@ -71,8 +71,7 @@ export function NotificationStatusSelector({ notifyOn, onChange, disabled = fals
               disabled={disabled}
             />
             <Label htmlFor="notify-pending" className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-yellow-500"></span>
-              Pending
+              <span className="h-3 w-3 rounded-full bg-yellow-500"></span>В ожидании
             </Label>
           </div>
         </div>
