@@ -13,3 +13,6 @@ services:
     environment:
       - NODE_ENV=production
       - SETTINGS_FILE=/app/data/settings.json
+      - GITLAB_URL=${GITLAB_URL:-}
+      - GITLAB_TOKEN=${GITLAB_TOKEN:-}
+

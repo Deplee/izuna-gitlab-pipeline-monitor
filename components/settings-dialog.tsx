@@ -17,6 +17,8 @@ import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import type { GitLabSettings, NotificationSettings } from "@/types"
 import { NotificationStatusSelector } from "@/components/notification-status-selector"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { InfoIcon } from 'lucide-react'
 
 interface SettingsDialogProps {
   open: boolean
@@ -55,6 +57,10 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
 
   const [isSaving, setIsSaving] = useState(false)
   const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const [isGitLabFromEnv, setIsGitLabFromEnv] = useState({
+    url: false,
+    token: false
+  })
   const { toast } = useToast()
 
   // Load settings on open
@@ -75,6 +81,12 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
               url: data.gitlab.url || "",
               token: data.gitlab.token || "",
               repositories: data.gitlab.repositories || "",
+            })
+            
+            // Проверяем, заданы ли переменные окружения
+            setIsGitLabFromEnv({
+              url: !!process.env.GITLAB_URL,
+              token: !!process.env.GITLAB_TOKEN
             })
           }
 
@@ -135,7 +147,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
       setIsSaving(true)
 
       // Validate required fields
-      if (!gitlabSettings.url) {
+      if (!gitlabSettings.url && !isGitLabFromEnv.url) {
         toast({
           title: "Ошибка",
           description: "URL GitLab обязателен для заполнения",
@@ -144,7 +156,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
         return
       }
 
-      if (!gitlabSettings.token) {
+      if (!gitlabSettings.token && !isGitLabFromEnv.token) {
         toast({
           title: "Ошибка",
           description: "Токен доступа GitLab обязателен для заполнения",
@@ -178,7 +190,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
         onOpenChange(false)
       } else {
         const error = await response.json()
-        throw new Error(error.message || "Не удалось сохранить настройки")
+        throw new Error(error.error || "Не удалось сохранить настройки")
       }
     } catch (error) {
       console.error("Error saving settings:", error)
@@ -190,7 +202,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
     } finally {
       setIsSaving(false)
     }
-  }, [gitlabSettings, notificationSettings, toast, onOpenChange, onSettingsSaved])
+  }, [gitlabSettings, notificationSettings, toast, onOpenChange, onSettingsSaved, isGitLabFromEnv])
 
   // Handle GitLab settings changes
   const updateGitlabSetting = useCallback((key: keyof GitLabSettings, value: string) => {
@@ -250,6 +262,21 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
           </TabsList>
 
           <TabsContent value="gitlab" className="space-y-4 py-4">
+            {(isGitLabFromEnv.url || isGitLabFromEnv.token) && (
+              <Alert>
+                <InfoIcon className="h-4 w-4" />
+                <AlertTitle>Настройки из переменных окружения</AlertTitle>
+                <AlertDescription>
+                  {isGitLabFromEnv.url && isGitLabFromEnv.token 
+                    ? "URL и токен GitLab настроены через переменные окружения и не могут быть изменены через интерфейс."
+                    : isGitLabFromEnv.url 
+                      ? "URL GitLab настроен через переменную окружения и не может быть изменен через интерфейс."
+                      : "Токен GitLab настроен через переменную окружения и не может быть изменен через интерфейс."
+                  }
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="gitlab-url-input">URL GitLab</Label>
               <Input
@@ -257,7 +284,13 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
                 placeholder="https://gitlab.com"
                 value={gitlabSettings.url}
                 onChange={(e) => updateGitlabSetting("url", e.target.value)}
+                disabled={isGitLabFromEnv.url}
               />
+              {isGitLabFromEnv.url && (
+                <p className="text-xs text-muted-foreground">
+                  Задано через переменную окружения GITLAB_URL
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -268,10 +301,17 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
                 placeholder="glpat-xxxxxxxxx"
                 value={gitlabSettings.token}
                 onChange={(e) => updateGitlabSetting("token", e.target.value)}
+                disabled={isGitLabFromEnv.token}
               />
-              <p className="text-xs text-muted-foreground">
-                Создайте токен с правами api в GitLab &gt; Settings &gt; Access Tokens
-              </p>
+              {isGitLabFromEnv.token ? (
+                <p className="text-xs text-muted-foreground">
+                  Задано через переменную окружения GITLAB_TOKEN
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Создайте токен с правами api в GitLab &gt; Settings &gt; Access Tokens
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -410,3 +450,4 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
     </Dialog>
   )
 }
+

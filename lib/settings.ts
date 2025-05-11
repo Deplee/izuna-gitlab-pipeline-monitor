@@ -13,8 +13,8 @@ interface Settings {
 // Default settings
 const DEFAULT_SETTINGS: Settings = {
   gitlab: {
-    url: "https://gitlab.com",
-    token: "",
+    url: process.env.GITLAB_URL || "https://gitlab.com",
+    token: process.env.GITLAB_TOKEN || "",
     repositories: "",
   },
   notifications: {
@@ -54,7 +54,18 @@ export async function getSettings(): Promise<Settings> {
     // Try to read settings file
     try {
       const data = await fs.readFile(SETTINGS_FILE, "utf-8")
-      return JSON.parse(data)
+      const savedSettings = JSON.parse(data)
+      
+      // Всегда используем URL и токен из переменных окружения, если они заданы
+      if (process.env.GITLAB_URL) {
+        savedSettings.gitlab.url = process.env.GITLAB_URL
+      }
+      
+      if (process.env.GITLAB_TOKEN) {
+        savedSettings.gitlab.token = process.env.GITLAB_TOKEN
+      }
+      
+      return savedSettings
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         console.log("Settings file not found, creating with defaults")
@@ -79,6 +90,15 @@ export async function getSettings(): Promise<Settings> {
 
 export async function saveSettings(settings: Settings): Promise<void> {
   try {
+    // Всегда используем URL и токен из переменных окружения, если они заданы
+    if (process.env.GITLAB_URL) {
+      settings.gitlab.url = process.env.GITLAB_URL
+    }
+    
+    if (process.env.GITLAB_TOKEN) {
+      settings.gitlab.token = process.env.GITLAB_TOKEN
+    }
+    
     // Ensure data directory exists
     const settingsDir = path.dirname(SETTINGS_FILE)
     try {
@@ -91,8 +111,8 @@ export async function saveSettings(settings: Settings): Promise<void> {
     // Check if directory is writable
     try {
       // Try to write a test file to check permissions
-      const testFile = path.join(settingsDir, '.write-test')
-      await fs.writeFile(testFile, 'test', { flag: 'w' })
+      const testFile = path.join(settingsDir, ".write-test")
+      await fs.writeFile(testFile, "test", { flag: "w" })
       await fs.unlink(testFile) // Remove test file
     } catch (err) {
       console.error("Directory is not writable:", err)
@@ -111,3 +131,4 @@ export async function saveSettings(settings: Settings): Promise<void> {
     throw error
   }
 }
+
