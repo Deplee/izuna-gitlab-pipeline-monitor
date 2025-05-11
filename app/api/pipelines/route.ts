@@ -108,6 +108,11 @@ export async function GET() {
 
           // Проверяем, что pipelinesData - это массив
           if (Array.isArray(pipelinesData)) {
+            // Выводим первый пайплайн для отладки
+            if (pipelinesData.length > 0) {
+              console.log(`API: First pipeline example:`, JSON.stringify(pipelinesData[0]))
+            }
+            
             const pipelines = pipelinesData.map((pipeline: any) => ({
               id: pipeline.id,
               status: pipeline.status,
@@ -155,3 +160,4 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch pipelines" }, { status: 500 })
   }
 }
+

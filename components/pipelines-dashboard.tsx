@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { PipelineList } from "@/components/pipeline-list"
 import { PipelineFilters } from "@/components/pipeline-filters"
 import { SettingsDialog } from "@/components/settings-dialog"
-import { Settings, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Settings, RefreshCw, AlertTriangle, Bug } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,6 +21,7 @@ export function PipelinesDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [debugInfo, setDebugInfo] = useState<string | null>(null)
+  const [apiResponses, setApiResponses] = useState<{repos?: any, pipelines?: any}>({})
   const { toast } = useToast()
 
   // Use refs to prevent infinite loops
@@ -46,6 +47,7 @@ export function PipelinesDashboard() {
 
       setError(null)
       setDebugInfo(null)
+      setApiResponses({})
 
       try {
         console.log("Dashboard: Fetching settings...")
@@ -80,10 +82,11 @@ export function PipelinesDashboard() {
         }
 
         // Fetch repositories
+        let reposData: Repository[] = []
         try {
           console.log("Dashboard: Fetching repositories...")
           const reposResponse = await fetch("/api/repositories")
-
+          
           if (!reposResponse.ok) {
             const errorData = await reposResponse.json()
             throw new Error(
@@ -91,9 +94,10 @@ export function PipelinesDashboard() {
             )
           }
 
-          const reposData = await reposResponse.json()
-          console.log(`Dashboard: Fetched ${reposData.length} repositories`)
+          reposData = await reposResponse.json()
+          console.log(`Dashboard: Fetched ${reposData.length} repositories:`, reposData)
           setRepositories(reposData)
+          setApiResponses(prev => ({...prev, repos: reposData}))
 
           if (reposData.length === 0) {
             setDebugInfo("Репозитории не найдены. Проверьте ID проектов в настройках.")
@@ -119,7 +123,8 @@ export function PipelinesDashboard() {
           }
 
           const pipelinesData = await pipelinesResponse.json()
-          console.log(`Dashboard: Fetched ${pipelinesData.length} pipelines`)
+          console.log(`Dashboard: Fetched ${pipelinesData.length} pipelines:`, pipelinesData)
+          setApiResponses(prev => ({...prev, pipelines: pipelinesData}))
           setPipelines(pipelinesData)
           // Only set filtered pipelines on initial load or if they're empty
           if (!initialFetchDone.current || filteredPipelines.length === 0) {
@@ -190,6 +195,15 @@ export function PipelinesDashboard() {
     setIsConfigured((prev) => prev)
   }
 
+  const toggleDebugMode = () => {
+    if (apiResponses.repos || apiResponses.pipelines) {
+      setApiResponses({})
+    } else {
+      // Принудительно запрашиваем данные
+      handleRefresh()
+    }
+  }
+
   // If not configured, show configuration message
   if (!isConfigured && !isLoading && initialFetchDone.current) {
     return (
@@ -235,6 +249,10 @@ export function PipelinesDashboard() {
                 <RefreshCw className="h-4 w-4" />
                 Обновить
               </Button>
+              <Button onClick={toggleDebugMode} className="flex items-center gap-2" variant="outline">
+                <Bug className="h-4 w-4" />
+                Режим отладки
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -268,6 +286,15 @@ export function PipelinesDashboard() {
             <Settings className="h-4 w-4" />
             Настройки
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleDebugMode}
+            className="flex items-center gap-2"
+          >
+            <Bug className="h-4 w-4" />
+            Отладка
+          </Button>
         </div>
       </div>
 
@@ -279,6 +306,28 @@ export function PipelinesDashboard() {
         </Alert>
       )}
 
+      {apiResponses.repos && (
+        <Alert variant="default" className="bg-blue-500/10 border-blue-500/50">
+          <AlertTitle>Ответ API: Репозитории</AlertTitle>
+          <AlertDescription>
+            <pre className="text-xs overflow-auto max-h-40 p-2 bg-black/20 rounded">
+              {JSON.stringify(apiResponses.repos, null, 2)}
+            </pre>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {apiResponses.pipelines && (
+        <Alert variant="default" className="bg-blue-500/10 border-blue-500/50">
+          <AlertTitle>Ответ API: Пайплайны</AlertTitle>
+          <AlertDescription>
+            <pre className="text-xs overflow-auto max-h-40 p-2 bg-black/20 rounded">
+              {JSON.stringify(apiResponses.pipelines, null, 2)}
+            </pre>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <PipelineFilters pipelines={pipelines} repositories={repositories} onFilterChange={handleFilterChange} />
 
       <PipelineList pipelines={filteredPipelines} isLoading={isLoading} />
@@ -287,3 +336,4 @@ export function PipelinesDashboard() {
     </div>
   )
 }
+

@@ -76,10 +76,11 @@ export async function GET() {
       }
     }
 
-    console.log(`API: Fetched ${repositories.length} repositories`)
+    console.log(`API: Fetched ${repositories.length} repositories:`, repositories)
     return NextResponse.json(repositories, { status: 200 })
   } catch (error) {
     console.error("API: Error fetching repositories:", error)
     return NextResponse.json({ error: "Failed to fetch repositories" }, { status: 500 })
   }
 }
+

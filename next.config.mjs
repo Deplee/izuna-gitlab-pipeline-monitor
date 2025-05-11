@@ -18,7 +18,8 @@ const nextConfig = {
       allowedOrigins: ["*"],
     },
   },
+  // Отключаем строгий режим для устранения проблем с fetch
+  reactStrictMode: false,
 };
 
 export default nextConfig;
-
