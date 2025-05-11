@@ -43,10 +43,13 @@ const DEFAULT_SETTINGS: Settings = {
 export async function getSettings(): Promise<Settings> {
   try {
     // Ensure data directory exists
-    await fs.mkdir(path.dirname(SETTINGS_FILE), { recursive: true }).catch((err) => {
+    const settingsDir = path.dirname(SETTINGS_FILE)
+    try {
+      await fs.mkdir(settingsDir, { recursive: true })
+    } catch (err) {
       console.warn("Could not create settings directory:", err)
       // Continue anyway, we'll handle file errors separately
-    })
+    }
 
     // Try to read settings file
     try {
@@ -77,13 +80,32 @@ export async function getSettings(): Promise<Settings> {
 export async function saveSettings(settings: Settings): Promise<void> {
   try {
     // Ensure data directory exists
-    await fs.mkdir(path.dirname(SETTINGS_FILE), { recursive: true }).catch((err) => {
-      console.warn("Could not create settings directory:", err)
-      throw new Error("Не удалось создать директорию для настроек. Проверьте права доступа.")
-    })
+    const settingsDir = path.dirname(SETTINGS_FILE)
+    try {
+      await fs.mkdir(settingsDir, { recursive: true })
+    } catch (err) {
+      console.error("Could not create settings directory:", err)
+      throw new Error(`Не удалось создать директорию для настроек: ${(err as Error).message}`)
+    }
 
-    // Write settings to file
-    await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf-8")
+    // Check if directory is writable
+    try {
+      // Try to write a test file to check permissions
+      const testFile = path.join(settingsDir, '.write-test')
+      await fs.writeFile(testFile, 'test', { flag: 'w' })
+      await fs.unlink(testFile) // Remove test file
+    } catch (err) {
+      console.error("Directory is not writable:", err)
+      throw new Error(`Директория ${settingsDir} недоступна для записи: ${(err as Error).message}`)
+    }
+
+    // Write settings to file with detailed error handling
+    try {
+      await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf-8")
+    } catch (err) {
+      console.error("Error writing settings file:", err)
+      throw new Error(`Ошибка записи файла настроек: ${(err as Error).message}`)
+    }
   } catch (error) {
     console.error("Error saving settings:", error)
     throw error

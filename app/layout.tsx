@@ -9,7 +9,6 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "GitLab Pipeline Monitor",
   description: "Monitor GitLab pipelines and receive notifications",
-    generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -18,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="ru" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider defaultTheme="dark" attribute="class">
           {children}
