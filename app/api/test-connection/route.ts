@@ -1,5 +1,25 @@
 import { NextResponse } from "next/server"
-import { testGitLabConnection } from "@/lib/api-client"
+
+// Проверка подключения к GitLab API
+async function testGitLabConnection(url: string, token: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${url}/api/v4/version`, {
+      headers: {
+        "PRIVATE-TOKEN": token,
+      },
+    })
+    
+    if (!response.ok) {
+      return false
+    }
+    
+    const data = await response.json()
+    return !!data.version
+  } catch (error) {
+    console.error("GitLab connection test failed:", error)
+    return false
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -20,11 +40,11 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error testing GitLab connection:", error)
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : "Ошибка при проверке подключения к GitLab" 
-      }, 
-      { status: 500 }
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Ошибка при проверке подключения к GitLab",
+      },
+      { status: 500 },
     )
   }
 }

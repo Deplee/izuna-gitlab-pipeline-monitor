@@ -13,6 +13,6 @@ export UID=$(id -u)
 export GID=$(id -g)
 
 echo "Запуск docker-compose с UID=$UID и GID=$GID"
-docker-compose up -d
+docker compose up -d
 
 echo "Контейнер запущен. Приложение доступно по адресу http://localhost:3000"

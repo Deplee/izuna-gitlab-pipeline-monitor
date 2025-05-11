@@ -1,9 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  experimental: {
-    serverComponentsExternalPackages: ['sharp'],
-  },
+  // Обновлено для Next.js 15: serverExternalPackages вместо experimental.serverComponentsExternalPackages
+  serverExternalPackages: ['sharp'],
   eslint: {
     ignoreDuringBuilds: true,
   },

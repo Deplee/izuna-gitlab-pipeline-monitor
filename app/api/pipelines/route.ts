@@ -6,11 +6,14 @@ export async function GET() {
   try {
     console.log("API: Fetching pipelines...")
     const settings = await getSettings()
-    console.log("API: Settings loaded:", JSON.stringify({
-      gitlabUrl: settings.gitlab.url,
-      hasToken: !!settings.gitlab.token,
-      repositories: settings.gitlab.repositories
-    }))
+    console.log(
+      "API: Settings loaded:",
+      JSON.stringify({
+        gitlabUrl: settings.gitlab.url,
+        hasToken: !!settings.gitlab.token,
+        repositories: settings.gitlab.repositories,
+      }),
+    )
 
     if (!settings.gitlab.url || !settings.gitlab.token || !settings.gitlab.repositories) {
       console.log("API: GitLab settings not configured")
@@ -68,7 +71,7 @@ export async function GET() {
       try {
         const pipelinesUrl = `${settings.gitlab.url}/api/v4/projects/${repo.id}/pipelines?per_page=20`
         console.log(`API: Pipelines URL: ${pipelinesUrl}`)
-        
+
         const pipelinesResponse = await fetch(pipelinesUrl, {
           headers: {
             "PRIVATE-TOKEN": settings.gitlab.token,
@@ -94,7 +97,11 @@ export async function GET() {
           allPipelines.push(...pipelines)
         } else {
           const errorText = await pipelinesResponse.text()
-          console.error(`API: Failed to fetch pipelines for repository ${repo.id}:`, pipelinesResponse.status, errorText)
+          console.error(
+            `API: Failed to fetch pipelines for repository ${repo.id}:`,
+            pipelinesResponse.status,
+            errorText,
+          )
         }
       } catch (error) {
         console.error(`API: Error fetching pipelines for repository ${repo.id}:`, error)
