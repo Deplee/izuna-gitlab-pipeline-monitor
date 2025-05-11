@@ -29,6 +29,7 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# Create a non-root user with specific UID/GID for better security and permissions
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -42,9 +43,10 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Create data directory for settings
+# Create data directory for settings with proper permissions
 RUN mkdir -p /app/data
 RUN chown nextjs:nodejs /app/data
+RUN chmod 755 /app/data
 
 USER nextjs
 

@@ -15,4 +15,5 @@ services:
       - SETTINGS_FILE=/app/data/settings.json
       - GITLAB_URL=${GITLAB_URL:-}
       - GITLAB_TOKEN=${GITLAB_TOKEN:-}
+    user: "${UID:-1000}:${GID:-1000}"
 

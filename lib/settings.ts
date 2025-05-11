@@ -55,16 +55,16 @@ export async function getSettings(): Promise<Settings> {
     try {
       const data = await fs.readFile(SETTINGS_FILE, "utf-8")
       const savedSettings = JSON.parse(data)
-      
+
       // Всегда используем URL и токен из переменных окружения, если они заданы
       if (process.env.GITLAB_URL) {
         savedSettings.gitlab.url = process.env.GITLAB_URL
       }
-      
+
       if (process.env.GITLAB_TOKEN) {
         savedSettings.gitlab.token = process.env.GITLAB_TOKEN
       }
-      
+
       return savedSettings
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -94,11 +94,11 @@ export async function saveSettings(settings: Settings): Promise<void> {
     if (process.env.GITLAB_URL) {
       settings.gitlab.url = process.env.GITLAB_URL
     }
-    
+
     if (process.env.GITLAB_TOKEN) {
       settings.gitlab.token = process.env.GITLAB_TOKEN
     }
-    
+
     // Ensure data directory exists
     const settingsDir = path.dirname(SETTINGS_FILE)
     try {
@@ -108,18 +108,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
       throw new Error(`Не удалось создать директорию для настроек: ${(err as Error).message}`)
     }
 
-    // Check if directory is writable
-    try {
-      // Try to write a test file to check permissions
-      const testFile = path.join(settingsDir, ".write-test")
-      await fs.writeFile(testFile, "test", { flag: "w" })
-      await fs.unlink(testFile) // Remove test file
-    } catch (err) {
-      console.error("Directory is not writable:", err)
-      throw new Error(`Директория ${settingsDir} недоступна для записи: ${(err as Error).message}`)
-    }
-
-    // Write settings to file with detailed error handling
+    // Упрощаем проверку прав доступа - просто пытаемся записать файл
     try {
       await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf-8")
     } catch (err) {
@@ -131,4 +120,3 @@ export async function saveSettings(settings: Settings): Promise<void> {
     throw error
   }
 }
-
