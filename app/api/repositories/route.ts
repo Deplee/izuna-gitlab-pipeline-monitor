@@ -20,12 +20,13 @@ export async function GET() {
       return NextResponse.json({ error: "GitLab settings not configured" }, { status: 400 })
     }
 
+    // Улучшенный парсинг ID репозиториев
     const repositoryIds = settings.gitlab.repositories
       .split(",")
       .map((id) => id.trim())
       .filter(Boolean)
 
-    console.log("API: Repository IDs:", repositoryIds)
+    console.log("API: Repository IDs after parsing:", repositoryIds)
 
     if (repositoryIds.length === 0) {
       console.log("API: No repositories configured")
@@ -37,7 +38,9 @@ export async function GET() {
     for (const repoId of repositoryIds) {
       console.log(`API: Fetching repository ${repoId} from ${settings.gitlab.url}`)
       try {
-        const repoUrl = `${settings.gitlab.url}/api/v4/projects/${repoId}`
+        // Проверяем, содержит ли ID слеш (для случаев, когда используется namespace/project_name)
+        const encodedRepoId = repoId.includes("/") ? encodeURIComponent(repoId) : repoId
+        const repoUrl = `${settings.gitlab.url}/api/v4/projects/${encodedRepoId}`
         console.log(`API: Repository URL: ${repoUrl}`)
 
         const repoResponse = await fetch(repoUrl, {

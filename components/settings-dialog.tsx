@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 import type { GitLabSettings, NotificationSettings } from "@/types"
 import { NotificationStatusSelector } from "@/components/notification-status-selector"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { InfoIcon, CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { InfoIcon, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 
 interface SettingsDialogProps {
   open: boolean
@@ -203,6 +203,16 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
         toast({
           title: "Ошибка",
           description: "Токен доступа GitLab обязателен для заполнения",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Проверяем, что ID репозиториев указаны
+      if (!gitlabSettings.repositories.trim()) {
+        toast({
+          title: "Ошибка",
+          description: "Необходимо указать хотя бы один ID репозитория",
           variant: "destructive",
         })
         return
@@ -399,7 +409,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
                 onChange={(e) => updateGitlabSetting("repositories", e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Список ID проектов GitLab для мониторинга, разделенных запятыми
+                Список ID проектов GitLab для мониторинга, разделенных запятыми. Можно использовать числовые ID (например, 123) или полные пути (например, group/project).
               </p>
             </div>
           </TabsContent>
