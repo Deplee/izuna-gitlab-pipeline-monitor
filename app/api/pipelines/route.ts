@@ -37,10 +37,13 @@ export async function GET() {
     for (const repoId of repositoryIds) {
       console.log(`API: Fetching repository ${repoId} from ${settings.gitlab.url}`)
       try {
+        // Добавляем параметр для игнорирования SSL-ошибок при самоподписанных сертификатах
         const repoResponse = await fetch(`${settings.gitlab.url}/api/v4/projects/${repoId}`, {
           headers: {
             "PRIVATE-TOKEN": settings.gitlab.token,
           },
+          // @ts-ignore - игнорируем ошибку типа для node-fetch
+          rejectUnauthorized: false,
         })
 
         if (repoResponse.ok) {
@@ -55,6 +58,13 @@ export async function GET() {
         } else {
           const errorText = await repoResponse.text()
           console.error(`API: Failed to fetch repository ${repoId}:`, repoResponse.status, errorText)
+          // Пытаемся распарсить JSON ошибки, если возможно
+          try {
+            const errorJson = JSON.parse(errorText)
+            console.error("API: Error details:", errorJson)
+          } catch (e) {
+            // Если не удалось распарсить JSON, просто логируем текст
+          }
         }
       } catch (error) {
         console.error(`API: Error fetching repository ${repoId}:`, error)
@@ -69,32 +79,40 @@ export async function GET() {
     for (const repo of repositories) {
       console.log(`API: Fetching pipelines for repository ${repo.id} (${repo.name})`)
       try {
-        const pipelinesUrl = `${settings.gitlab.url}/api/v4/projects/${repo.id}/pipelines?per_page=20`
+        // Используем более полный URL с параметрами для получения большего количества пайплайнов
+        const pipelinesUrl = `${settings.gitlab.url}/api/v4/projects/${repo.id}/pipelines?per_page=50&order_by=updated_at&sort=desc`
         console.log(`API: Pipelines URL: ${pipelinesUrl}`)
 
         const pipelinesResponse = await fetch(pipelinesUrl, {
           headers: {
             "PRIVATE-TOKEN": settings.gitlab.token,
           },
+          // @ts-ignore - игнорируем ошибку типа для node-fetch
+          rejectUnauthorized: false,
         })
 
         if (pipelinesResponse.ok) {
           const pipelinesData = await pipelinesResponse.json()
           console.log(`API: Fetched ${pipelinesData.length} pipelines for repository ${repo.id}`)
 
-          const pipelines = pipelinesData.map((pipeline: any) => ({
-            id: pipeline.id,
-            status: pipeline.status,
-            ref: pipeline.ref,
-            sha: pipeline.sha,
-            web_url: pipeline.web_url,
-            created_at: pipeline.created_at,
-            updated_at: pipeline.updated_at,
-            duration: pipeline.duration,
-            repository: repo,
-          }))
+          // Проверяем, что pipelinesData - это массив
+          if (Array.isArray(pipelinesData)) {
+            const pipelines = pipelinesData.map((pipeline: any) => ({
+              id: pipeline.id,
+              status: pipeline.status,
+              ref: pipeline.ref,
+              sha: pipeline.sha,
+              web_url: pipeline.web_url,
+              created_at: pipeline.created_at,
+              updated_at: pipeline.updated_at,
+              duration: pipeline.duration,
+              repository: repo,
+            }))
 
-          allPipelines.push(...pipelines)
+            allPipelines.push(...pipelines)
+          } else {
+            console.error(`API: Unexpected pipelines data format for repository ${repo.id}:`, pipelinesData)
+          }
         } else {
           const errorText = await pipelinesResponse.text()
           console.error(
@@ -102,6 +120,13 @@ export async function GET() {
             pipelinesResponse.status,
             errorText,
           )
+          // Пытаемся распарсить JSON ошибки, если возможно
+          try {
+            const errorJson = JSON.parse(errorText)
+            console.error("API: Error details:", errorJson)
+          } catch (e) {
+            // Если не удалось распарсить JSON, просто логируем текст
+          }
         }
       } catch (error) {
         console.error(`API: Error fetching pipelines for repository ${repo.id}:`, error)

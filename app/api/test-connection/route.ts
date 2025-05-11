@@ -3,17 +3,23 @@ import { NextResponse } from "next/server"
 // Проверка подключения к GitLab API
 async function testGitLabConnection(url: string, token: string): Promise<boolean> {
   try {
+    console.log(`Testing GitLab connection to ${url}`)
     const response = await fetch(`${url}/api/v4/version`, {
       headers: {
         "PRIVATE-TOKEN": token,
       },
+      // @ts-ignore - игнорируем ошибку типа для node-fetch
+      rejectUnauthorized: false,
     })
-    
+
     if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`GitLab connection test failed: ${response.status}`, errorText)
       return false
     }
-    
+
     const data = await response.json()
+    console.log("GitLab version:", data)
     return !!data.version
   } catch (error) {
     console.error("GitLab connection test failed:", error)

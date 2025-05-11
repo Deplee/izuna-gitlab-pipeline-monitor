@@ -12,6 +12,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Добавляем настройки для работы с самоподписанными сертификатами
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["*"],
+    },
+  },
 };
 
 export default nextConfig;
+

@@ -4,11 +4,12 @@ import { useState, useEffect, useRef } from "react"
 import { PipelineList } from "@/components/pipeline-list"
 import { PipelineFilters } from "@/components/pipeline-filters"
 import { SettingsDialog } from "@/components/settings-dialog"
-import { Settings, RefreshCw } from 'lucide-react'
+import { Settings, RefreshCw, AlertTriangle } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Pipeline, Repository } from "@/types"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function PipelinesDashboard() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
@@ -19,6 +20,7 @@ export function PipelinesDashboard() {
   const [isConfigured, setIsConfigured] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
   const { toast } = useToast()
 
   // Use refs to prevent infinite loops
@@ -43,17 +45,21 @@ export function PipelinesDashboard() {
       }
 
       setError(null)
+      setDebugInfo(null)
 
       try {
         console.log("Dashboard: Fetching settings...")
         // Check if settings are configured
         const settingsResponse = await fetch("/api/settings")
         const settingsData = await settingsResponse.json()
-        console.log("Dashboard: Settings loaded:", JSON.stringify({
-          gitlabUrl: settingsData.gitlab?.url,
-          hasToken: !!settingsData.gitlab?.token,
-          repositories: settingsData.gitlab?.repositories
-        }))
+        console.log(
+          "Dashboard: Settings loaded:",
+          JSON.stringify({
+            gitlabUrl: settingsData.gitlab?.url,
+            hasToken: !!settingsData.gitlab?.token,
+            repositories: settingsData.gitlab?.repositories,
+          }),
+        )
 
         const hasGitlabConfig =
           settingsData.gitlab &&
@@ -80,12 +86,18 @@ export function PipelinesDashboard() {
 
           if (!reposResponse.ok) {
             const errorData = await reposResponse.json()
-            throw new Error(`Ошибка при получении репозиториев: ${reposResponse.status} ${errorData.error || reposResponse.statusText}`)
+            throw new Error(
+              `Ошибка при получении репозиториев: ${reposResponse.status} ${errorData.error || reposResponse.statusText}`,
+            )
           }
 
           const reposData = await reposResponse.json()
           console.log(`Dashboard: Fetched ${reposData.length} repositories`)
           setRepositories(reposData)
+
+          if (reposData.length === 0) {
+            setDebugInfo("Репозитории не найдены. Проверьте ID проектов в настройках.")
+          }
         } catch (repoError) {
           console.error("Dashboard: Error fetching repositories:", repoError)
           setError(repoError instanceof Error ? repoError.message : "Ошибка при получении репозиториев")
@@ -112,6 +124,15 @@ export function PipelinesDashboard() {
           // Only set filtered pipelines on initial load or if they're empty
           if (!initialFetchDone.current || filteredPipelines.length === 0) {
             setFilteredPipelines(pipelinesData)
+          }
+
+          if (pipelinesData.length === 0) {
+            setDebugInfo(
+              "Пайплайны не найдены. Возможные причины:\n" +
+                "1. В репозиториях нет пайплайнов\n" +
+                "2. Токен не имеет прав на просмотр пайплайнов\n" +
+                "3. Проблемы с сетевым подключением к GitLab API",
+            )
           }
         } catch (pipelineError) {
           console.error("Dashboard: Error fetching pipelines:", pipelineError)
@@ -228,22 +249,35 @@ export function PipelinesDashboard() {
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Пайплайны</h2>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleRefresh} 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
             disabled={isRefreshing}
             className="flex items-center gap-2"
           >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Обновление...' : 'Обновить'}
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            {isRefreshing ? "Обновление..." : "Обновить"}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center gap-2"
+          >
             <Settings className="h-4 w-4" />
             Настройки
           </Button>
         </div>
       </div>
+
+      {debugInfo && (
+        <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/50">
+          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+          <AlertTitle>Диагностическая информация</AlertTitle>
+          <AlertDescription className="whitespace-pre-line">{debugInfo}</AlertDescription>
+        </Alert>
+      )}
 
       <PipelineFilters pipelines={pipelines} repositories={repositories} onFilterChange={handleFilterChange} />
 

@@ -6,11 +6,14 @@ export async function GET() {
   try {
     console.log("API: Fetching repositories...")
     const settings = await getSettings()
-    console.log("API: Settings loaded:", JSON.stringify({
-      gitlabUrl: settings.gitlab.url,
-      hasToken: !!settings.gitlab.token,
-      repositories: settings.gitlab.repositories
-    }))
+    console.log(
+      "API: Settings loaded:",
+      JSON.stringify({
+        gitlabUrl: settings.gitlab.url,
+        hasToken: !!settings.gitlab.token,
+        repositories: settings.gitlab.repositories,
+      }),
+    )
 
     if (!settings.gitlab.url || !settings.gitlab.token || !settings.gitlab.repositories) {
       console.log("API: GitLab settings not configured")
@@ -36,11 +39,13 @@ export async function GET() {
       try {
         const repoUrl = `${settings.gitlab.url}/api/v4/projects/${repoId}`
         console.log(`API: Repository URL: ${repoUrl}`)
-        
+
         const repoResponse = await fetch(repoUrl, {
           headers: {
             "PRIVATE-TOKEN": settings.gitlab.token,
           },
+          // @ts-ignore - игнорируем ошибку типа для node-fetch
+          rejectUnauthorized: false,
         })
 
         if (repoResponse.ok) {
@@ -55,6 +60,13 @@ export async function GET() {
         } else {
           const errorText = await repoResponse.text()
           console.error(`API: Failed to fetch repository ${repoId}:`, repoResponse.status, errorText)
+          // Пытаемся распарсить JSON ошибки, если возможно
+          try {
+            const errorJson = JSON.parse(errorText)
+            console.error("API: Error details:", errorJson)
+          } catch (e) {
+            // Если не удалось распарсить JSON, просто логируем текст
+          }
         }
       } catch (error) {
         console.error(`API: Error fetching repository ${repoId}:`, error)

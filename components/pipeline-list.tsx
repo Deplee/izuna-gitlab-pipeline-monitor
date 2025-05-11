@@ -3,7 +3,7 @@
 import { useState, memo } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle, XCircle, Clock, Play, AlertTriangle, ExternalLink } from "lucide-react"
+import { CheckCircle, XCircle, Clock, Play, AlertTriangle, ExternalLink } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { Pipeline } from "@/types"
@@ -79,7 +79,9 @@ export const PipelineList = memo(function PipelineList({ pipelines, isLoading }:
           <CardDescription>Пайплайны не найдены</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">Пайплайны не соответствуют текущим фильтрам или отсутствуют.</p>
+          <p className="text-muted-foreground">
+            Пайплайны не соответствуют текущим фильтрам или отсутствуют в выбранных репозиториях.
+          </p>
         </CardContent>
       </Card>
     )
@@ -149,3 +151,4 @@ export const PipelineList = memo(function PipelineList({ pipelines, isLoading }:
     </Card>
   )
 })
+

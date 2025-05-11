@@ -65,6 +65,13 @@ export async function getSettings(): Promise<Settings> {
         savedSettings.gitlab.token = process.env.GITLAB_TOKEN
       }
 
+      // Логируем настройки для отладки (без токена)
+      console.log("Settings loaded:", {
+        gitlabUrl: savedSettings.gitlab.url,
+        hasToken: !!savedSettings.gitlab.token,
+        repositories: savedSettings.gitlab.repositories,
+      })
+
       return savedSettings
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -120,3 +127,4 @@ export async function saveSettings(settings: Settings): Promise<void> {
     throw error
   }
 }
+
