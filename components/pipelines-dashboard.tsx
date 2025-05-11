@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { PipelineList } from "@/components/pipeline-list"
 import { PipelineFilters } from "@/components/pipeline-filters"
 import { SettingsDialog } from "@/components/settings-dialog"
-import { Settings } from "lucide-react"
+import { Settings, RefreshCw } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,6 +18,7 @@ export function PipelinesDashboard() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isConfigured, setIsConfigured] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const { toast } = useToast()
 
   // Use refs to prevent infinite loops
@@ -37,14 +38,22 @@ export function PipelinesDashboard() {
     const fetchData = async () => {
       if (!initialFetchDone.current) {
         setIsLoading(true)
+      } else {
+        setIsRefreshing(true)
       }
 
       setError(null)
 
       try {
+        console.log("Dashboard: Fetching settings...")
         // Check if settings are configured
         const settingsResponse = await fetch("/api/settings")
         const settingsData = await settingsResponse.json()
+        console.log("Dashboard: Settings loaded:", JSON.stringify({
+          gitlabUrl: settingsData.gitlab?.url,
+          hasToken: !!settingsData.gitlab?.token,
+          repositories: settingsData.gitlab?.repositories
+        }))
 
         const hasGitlabConfig =
           settingsData.gitlab &&
@@ -59,49 +68,57 @@ export function PipelinesDashboard() {
 
         if (!hasGitlabConfig) {
           setIsLoading(false)
+          setIsRefreshing(false)
           setError("Необходимо настроить подключение к GitLab")
           return
         }
 
         // Fetch repositories
         try {
+          console.log("Dashboard: Fetching repositories...")
           const reposResponse = await fetch("/api/repositories")
 
           if (!reposResponse.ok) {
-            throw new Error(`Ошибка при получении репозиториев: ${reposResponse.status} ${reposResponse.statusText}`)
+            const errorData = await reposResponse.json()
+            throw new Error(`Ошибка при получении репозиториев: ${reposResponse.status} ${errorData.error || reposResponse.statusText}`)
           }
 
           const reposData = await reposResponse.json()
+          console.log(`Dashboard: Fetched ${reposData.length} repositories`)
           setRepositories(reposData)
         } catch (repoError) {
-          console.error("Error fetching repositories:", repoError)
+          console.error("Dashboard: Error fetching repositories:", repoError)
           setError(repoError instanceof Error ? repoError.message : "Ошибка при получении репозиториев")
           setIsLoading(false)
+          setIsRefreshing(false)
           return
         }
 
         // Fetch pipelines
         try {
+          console.log("Dashboard: Fetching pipelines...")
           const pipelinesResponse = await fetch("/api/pipelines")
 
           if (!pipelinesResponse.ok) {
+            const errorData = await pipelinesResponse.json()
             throw new Error(
-              `Ошибка при получении пайплайнов: ${pipelinesResponse.status} ${pipelinesResponse.statusText}`,
+              `Ошибка при получении пайплайнов: ${pipelinesResponse.status} ${errorData.error || pipelinesResponse.statusText}`,
             )
           }
 
           const pipelinesData = await pipelinesResponse.json()
+          console.log(`Dashboard: Fetched ${pipelinesData.length} pipelines`)
           setPipelines(pipelinesData)
           // Only set filtered pipelines on initial load or if they're empty
           if (!initialFetchDone.current || filteredPipelines.length === 0) {
             setFilteredPipelines(pipelinesData)
           }
         } catch (pipelineError) {
-          console.error("Error fetching pipelines:", pipelineError)
+          console.error("Dashboard: Error fetching pipelines:", pipelineError)
           setError(pipelineError instanceof Error ? pipelineError.message : "Ошибка при получении пайплайнов")
         }
       } catch (error) {
-        console.error("Error fetching data:", error)
+        console.error("Dashboard: Error fetching data:", error)
         setError(error instanceof Error ? error.message : "Произошла ошибка при загрузке данных")
         if (!initialFetchDone.current) {
           toast({
@@ -112,6 +129,7 @@ export function PipelinesDashboard() {
         }
       } finally {
         setIsLoading(false)
+        setIsRefreshing(false)
         initialFetchDone.current = true
       }
     }
@@ -142,6 +160,13 @@ export function PipelinesDashboard() {
     initialFetchDone.current = false
     // Force a re-render to trigger the useEffect
     setIsConfigured(false)
+  }
+
+  const handleRefresh = () => {
+    // Reset fetch state to trigger a new fetch
+    initialFetchDone.current = false
+    // Force a re-render to trigger the useEffect
+    setIsConfigured((prev) => prev)
   }
 
   // If not configured, show configuration message
@@ -180,10 +205,16 @@ export function PipelinesDashboard() {
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center py-8">
             <p className="text-center mb-6">Проверьте настройки подключения к GitLab и попробуйте снова.</p>
-            <Button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Открыть настройки
-            </Button>
+            <div className="flex gap-4">
+              <Button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Открыть настройки
+              </Button>
+              <Button onClick={handleRefresh} className="flex items-center gap-2" variant="outline">
+                <RefreshCw className="h-4 w-4" />
+                Обновить
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -196,10 +227,22 @@ export function PipelinesDashboard() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Пайплайны</h2>
-        <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2">
-          <Settings className="h-4 w-4" />
-          Настройки
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh} 
+            disabled={isRefreshing}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Обновление...' : 'Обновить'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Настройки
+          </Button>
+        </div>
       </div>
 
       <PipelineFilters pipelines={pipelines} repositories={repositories} onFilterChange={handleFilterChange} />

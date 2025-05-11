@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 import type { GitLabSettings, NotificationSettings } from "@/types"
 import { NotificationStatusSelector } from "@/components/notification-status-selector"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { InfoIcon } from 'lucide-react'
+import { InfoIcon, CheckCircle, XCircle, Loader2 } from "lucide-react"
 
 interface SettingsDialogProps {
   open: boolean
@@ -59,8 +59,10 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [isGitLabFromEnv, setIsGitLabFromEnv] = useState({
     url: false,
-    token: false
+    token: false,
   })
+  const [connectionStatus, setConnectionStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
+  const [connectionError, setConnectionError] = useState<string | null>(null)
   const { toast } = useToast()
 
   // Load settings on open
@@ -82,11 +84,11 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
               token: data.gitlab.token || "",
               repositories: data.gitlab.repositories || "",
             })
-            
+
             // Проверяем, заданы ли переменные окружения
             setIsGitLabFromEnv({
-              url: !!process.env.GITLAB_URL,
-              token: !!process.env.GITLAB_TOKEN
+              url: !!data._env?.gitlabUrlFromEnv,
+              token: !!data._env?.gitlabTokenFromEnv,
             })
           }
 
@@ -139,8 +141,49 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
   useEffect(() => {
     if (!open) {
       setSettingsLoaded(false)
+      setConnectionStatus("idle")
+      setConnectionError(null)
     }
   }, [open])
+
+  const testConnection = useCallback(async () => {
+    if (!gitlabSettings.url || !gitlabSettings.token) {
+      toast({
+        title: "Ошибка",
+        description: "Необходимо указать URL и токен GitLab для проверки подключения",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setConnectionStatus("testing")
+    setConnectionError(null)
+
+    try {
+      const response = await fetch("/api/test-connection", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: gitlabSettings.url,
+          token: gitlabSettings.token,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setConnectionStatus("success")
+      } else {
+        setConnectionStatus("error")
+        setConnectionError(data.error || "Не удалось подключиться к GitLab API")
+      }
+    } catch (error) {
+      setConnectionStatus("error")
+      setConnectionError(error instanceof Error ? error.message : "Произошла ошибка при проверке подключения")
+    }
+  }, [gitlabSettings.url, gitlabSettings.token, toast])
 
   const handleSaveSettings = useCallback(async () => {
     try {
@@ -210,6 +253,12 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
       ...prev,
       [key]: value,
     }))
+
+    // Reset connection status when URL or token changes
+    if (key === "url" || key === "token") {
+      setConnectionStatus("idle")
+      setConnectionError(null)
+    }
   }, [])
 
   // Handle Zulip settings changes
@@ -267,29 +316,58 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
                 <InfoIcon className="h-4 w-4" />
                 <AlertTitle>Настройки из переменных окружения</AlertTitle>
                 <AlertDescription>
-                  {isGitLabFromEnv.url && isGitLabFromEnv.token 
+                  {isGitLabFromEnv.url && isGitLabFromEnv.token
                     ? "URL и токен GitLab настроены через переменные окружения и не могут быть изменены через интерфейс."
-                    : isGitLabFromEnv.url 
+                    : isGitLabFromEnv.url
                       ? "URL GitLab настроен через переменную окружения и не может быть изменен через интерфейс."
-                      : "Токен GitLab настроен через переменную окружения и не может быть изменен через интерфейс."
-                  }
+                      : "Токен GitLab настроен через переменную окружения и не может быть изменен через интерфейс."}
                 </AlertDescription>
               </Alert>
             )}
 
             <div className="space-y-2">
               <Label htmlFor="gitlab-url-input">URL GitLab</Label>
-              <Input
-                id="gitlab-url-input"
-                placeholder="https://gitlab.com"
-                value={gitlabSettings.url}
-                onChange={(e) => updateGitlabSetting("url", e.target.value)}
-                disabled={isGitLabFromEnv.url}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="gitlab-url-input"
+                  placeholder="https://gitlab.com"
+                  value={gitlabSettings.url}
+                  onChange={(e) => updateGitlabSetting("url", e.target.value)}
+                  disabled={isGitLabFromEnv.url}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={testConnection}
+                  disabled={connectionStatus === "testing" || !gitlabSettings.url || !gitlabSettings.token}
+                >
+                  {connectionStatus === "testing" ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Проверка...
+                    </>
+                  ) : (
+                    "Проверить"
+                  )}
+                </Button>
+              </div>
               {isGitLabFromEnv.url && (
-                <p className="text-xs text-muted-foreground">
-                  Задано через переменную окружения GITLAB_URL
-                </p>
+                <p className="text-xs text-muted-foreground">Задано через переменную окружения GITLAB_URL</p>
+              )}
+
+              {connectionStatus === "success" && (
+                <div className="flex items-center text-green-500 mt-1">
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Подключение успешно</span>
+                </div>
+              )}
+
+              {connectionStatus === "error" && (
+                <div className="flex items-center text-red-500 mt-1">
+                  <XCircle className="h-4 w-4 mr-2" />
+                  <span className="text-sm">{connectionError || "Ошибка подключения"}</span>
+                </div>
               )}
             </div>
 
@@ -304,9 +382,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
                 disabled={isGitLabFromEnv.token}
               />
               {isGitLabFromEnv.token ? (
-                <p className="text-xs text-muted-foreground">
-                  Задано через переменную окружения GITLAB_TOKEN
-                </p>
+                <p className="text-xs text-muted-foreground">Задано через переменную окружения GITLAB_TOKEN</p>
               ) : (
                 <p className="text-xs text-muted-foreground">
                   Создайте токен с правами api в GitLab &gt; Settings &gt; Access Tokens
@@ -450,4 +526,3 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
     </Dialog>
   )
 }
-
